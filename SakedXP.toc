@@ -1,0 +1,38 @@
+## Interface: 16001
+## Title: |cffd4a24cSaked|r|cffe6e1d8XP|r
+## Notes: Guías de nivelación 1-60 para WoW Forever: motor propio, rutas automáticas por zona, flecha, detección de cadenas/prerrequisitos, selector de zonas y guías de profesiones.
+## Notes-esES: Guías de nivelación 1-60 para WoW Forever: motor propio, rutas automáticas por zona, flecha, detección de cadenas/prerrequisitos, selector de zonas y guías de profesiones.
+## Notes-esMX: Guías de nivelación 1-60 para WoW Forever: motor propio, rutas automáticas por zona, flecha, detección de cadenas/prerrequisitos, selector de zonas y guías de profesiones.
+## Author: SakedXP
+## Version: 0.3.0
+## Category: Quests & Leveling
+## IconTexture: Interface\Icons\INV_Misc_Map_01
+## OptionalDeps: QuestieDB, Questie, ForeverDungeonJournal
+## SavedVariables: SakedXPDB
+## SavedVariablesPerCharacter: SakedXPCharDB
+## AddonCompartmentFunc: SakedXP_OnCompartmentClick
+
+Core.lua
+Theme.lua
+Bridge.lua
+Smart.lua
+
+Data\DB.lua
+Data\Zones.lua
+Data\Professions.lua
+
+Engine\Engine.lua
+Engine\Generator.lua
+Engine\Automation.lua
+
+UI\GuideWindow.lua
+UI\Arrow.lua
+UI\Dungeon.lua
+UI\ZonePicker.lua
+UI\ProfessionWindow.lua
+UI\Settings.lua
+
+Guides\Builder.lua
+Guides\Riverglades.lua
+Guides\Shendralas.lua
+Guides\MountHyjal.lua

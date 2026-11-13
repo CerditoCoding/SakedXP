@@ -1,0 +1,26 @@
+# Push a tag like v0.3.0 and this builds SakedXP-v0.3.0.zip as a GitHub release.
+# WowUp picks up new releases automatically.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Package and release
+        uses: BigWigsMods/packager@v2
+        with:
+          args: -g classic
+        env:
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
