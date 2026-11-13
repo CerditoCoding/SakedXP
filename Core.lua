@@ -105,6 +105,17 @@ function S.Error(err)
     pcall(geterrorhandler(), err)
 end
 
+-- Item APIs moved into C_Item on the modern client; use whichever exists.
+function S.GetItemInfo(id)
+    local f = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo
+    if f and id then return f(id) end
+end
+
+function S.GetItemCount(id, includeBank)
+    local f = (C_Item and C_Item.GetItemCount) or _G.GetItemCount
+    return (f and id and f(id, includeBank)) or 0
+end
+
 -- The modern client hides some values ("secret values") from addons.
 function S.IsSecret(v)
     return type(issecretvalue) == "function" and issecretvalue(v) or false

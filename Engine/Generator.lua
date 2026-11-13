@@ -308,7 +308,7 @@ end
 local function bestReward(id)
     local best, bq, bil
     for _, item in ipairs(DB.QuestRewards(id)) do
-        local _, link, quality = GetItemInfo(item)
+        local _, link, quality = S.GetItemInfo(item)
         if not quality and C_Item and C_Item.RequestLoadItemDataByID then
             pcall(C_Item.RequestLoadItemDataByID, item)
         end

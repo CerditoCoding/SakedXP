@@ -33,7 +33,7 @@ end
 ---------------------------------------------------------------------------
 -- Quest status
 ---------------------------------------------------------------------------
-local function itemCount(id) return (id and id > 0 and GetItemCount(id, true)) or 0 end
+local function itemCount(id) return (id and id > 0 and S.GetItemCount(id, true)) or 0 end
 
 -- The journal often lists the *last* quest of a chain; the dungeon quest is a
 -- step inside it. Work out the chain and the step the player is on.
