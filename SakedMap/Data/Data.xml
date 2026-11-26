@@ -7,7 +7,12 @@
   <Script file="M109.lua"/>
   <Script file="M229.lua"/>
   <Script file="M230.lua"/>
+  <Script file="M289.lua"/>
+  <Script file="M329.lua"/>
   <Script file="M349.lua"/>
   <Script file="M389.lua"/>
   <Script file="M429.lua"/>
+  <Script file="M2974.lua"/>
+  <Script file="M2994.lua"/>
+  <Script file="M3001.lua"/>
 </Ui>

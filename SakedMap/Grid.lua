@@ -265,13 +265,19 @@ function Grid:allFloors(filter)
     return out, n / 3
 end
 
--- rooms: buckets of group indices by 32-yard squares, then "smallest box holding the point" (same rule
--- as tools/build.py, which reports how often it agrees with the geometry)
+-- rooms: buckets of group indices by 32-yard squares, then "smallest room box holding the point", tested in
+-- the room's own WMO frame (same rule as tools/build.py, which reports how often it agrees with the geometry)
 function Grid:indexGroups()
     self.buckets = {}
+    local pls = self.data.placements or { { 0, 0, 0, math.pi, 1 } }
+    self.pls = {}
+    for i, p in ipairs(pls) do
+        self.pls[i] = { x = p[1], y = p[2], z = p[3], c = math.cos(p[4]), s = math.sin(p[4]), k = 1 / (p[5] or 1) }
+    end
     for i, g in ipairs(self.groups) do
         local b = g.bb
-        g.vol = (b[4] - b[1]) * (b[5] - b[2]) * (b[6] - b[3])
+        local lb = g.lb or b
+        g.vol = (lb[4] - lb[1]) * (lb[5] - lb[2]) * (lb[6] - lb[3])
         for bx = floor(b[1] / BUCKET), floor(b[4] / BUCKET) do
             for by = floor(b[2] / BUCKET), floor(b[5] / BUCKET) do
                 local key = bx * 65536 + by
@@ -291,12 +297,36 @@ function Grid:groupAt(x, y, z)
         local i = l[k]
         local g = self.groups[i]
         local b = g.bb
-        if x >= b[1] - 0.5 and x <= b[4] + 0.5 and y >= b[2] - 0.5 and y <= b[5] + 0.5
-            and z + 1 >= b[3] - 1 and z + 1 <= b[6] + 2 then
-            if not bestv or g.vol < bestv then best, bestv = i, g.vol end
+        if x >= b[1] - 0.5 and x <= b[4] + 0.5 and y >= b[2] - 0.5 and y <= b[5] + 0.5 then
+            local lb, px, py, pz = g.lb, x, y, z
+            if lb then
+                local p = self.pls[g.p or 1]
+                local dx, dy = (x - p.x) * p.k, (y - p.y) * p.k
+                px, py, pz = dx * p.c + dy * p.s, -dx * p.s + dy * p.c, (z - p.z) * p.k
+            else
+                lb = b
+            end
+            if px >= lb[1] - 0.5 and px <= lb[4] + 0.5 and py >= lb[2] - 0.5 and py <= lb[5] + 0.5
+                and pz + 1 >= lb[3] - 1 and pz + 1 <= lb[6] + 2 then
+                if not bestv or g.vol < bestv then best, bestv = i, g.vol end
+            end
         end
     end
     return best
+end
+
+-- the subzone name the game would show at a point: a named room, else (outdoors) the terrain chunk's area
+local CHUNK = 1600 / 3 / 16
+function Grid:areaName(x, y, z)
+    local gi = self:groupAt(x, y, z)
+    local g = gi and self.groups[gi]
+    if g and (g.name ~= "" or g.ind) then return g.name, gi end
+    local ac = self.data.achunk
+    if ac then
+        local a = ac[(floor(x / CHUNK) + 1024) * 2048 + floor(y / CHUNK) + 1024]
+        if a then return self.data.areas[a] or "", gi end
+    end
+    return g and g.name or "", gi
 end
 
 -- display level for a height: the level whose [z0, z1] is nearest

@@ -90,8 +90,7 @@ function Filter:seedGlobal(headingKnown)
     local filter
     if area then
         filter = function(x, y, z)
-            local gi = grid:groupAt(x, y, z)
-            return gi and grid.groups[gi].name == area
+            return grid:areaName(x, y, z) == area
         end
     end
     local pts = grid:randomFloors(self.o.nGlobal, self.rng, filter)
@@ -242,11 +241,10 @@ end
 function Filter:observe()
     local area = self.area
     if not area then return end
-    local o, grid, groups = self.o, self.grid, self.grid.groups
+    local o, grid = self.o, self.grid
     local X, Y, Z, W = self.x, self.y, self.z, self.w
     for i = 1, self.n do
-        local gi = grid:groupAt(X[i], Y[i], Z[i])
-        local name = gi and groups[gi].name or ""
+        local name = grid:areaName(X[i], Y[i], Z[i])
         if name ~= area then
             W[i] = W[i] * (name == "" and o.areaUnnamed or o.areaMismatch)
         end

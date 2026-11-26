@@ -108,8 +108,7 @@ end
 -------------------------------------------------------------------- filter under test
 local filter = ns.Filter.new(grid, nil, rng)
 local function areaOf(x, y, z)
-    local gi = grid:groupAt(x, y, z)
-    local name = gi and grid.groups[gi].name or ""
+    local name = grid:areaName(x, y, z)
     if name == "" then return nil end -- the addon only uses non-empty subzone texts
     return name
 end

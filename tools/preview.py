@@ -8,6 +8,7 @@ show whether tiles, floors and world coordinates line up. --path draws a CSV of 
 """
 import io
 import math
+import math
 import os
 import re
 import sys
@@ -28,13 +29,13 @@ def load(map_id):
     d = {}
     for k in ("cell", "zq", "zmin", "gx0", "gy0", "gw", "gh"):
         d[k] = float(re.search(r"\b%s = (-?[\d.]+)" % k, src).group(1))
-    body = src.split("tiles = {", 1)[1].split("},\n  hints", 1)[0]
+    body = src.split("  tiles = {", 1)[1].split("},\n  hints", 1)[0]
     d["tiles"] = [tuple(float(v) for v in m.group(1).split(",")) for m in re.finditer(r"\{ ([-\d., ]+) \}", body)]
     body = src.split("hints = {", 1)[1].split("},\n  rows", 1)[0]
     d["hints"] = [tuple(float(v) for v in m.group(1).split(",")) for m in re.finditer(r"\{ ([-\d., ]+) \}", body)]
-    body = src.split("groups = {", 1)[1].split("},\n  names", 1)[0]
+    body = src.split("  groups = {", 1)[1].split("},\n  areas", 1)[0]
     d["groups"] = []
-    for m in re.finditer(r'name = "((?:[^"\\]|\\.)*)", lvl = (\d+), fz = ([-\d.]+), bb = \{ ([-\d., ]+) \}', body):
+    for m in re.finditer(r'name = "((?:[^"\\]|\\.)*)", lvl = (\d+), fz = ([-\d.]+), p = \d+, ind = \w+, bb = \{ ([-\d., ]+) \}', body):
         d["groups"].append({"name": m.group(1), "lvl": int(m.group(2)), "fz": float(m.group(3)),
                             "bb": [float(v) for v in m.group(4).split(",")]})
     d["rows"] = re.findall(r'^    "([^"]*)",$', src.split("rows = {", 1)[1], re.M)
@@ -61,36 +62,45 @@ def floors(d):
     return out
 
 
+def paste_clipped(img, t, pos):
+    x, y = pos
+    l, tp = max(0, -x), max(0, -y)
+    t = t.crop((l, tp, t.size[0], t.size[1]))
+    img.alpha_composite(t, (max(0, x), max(0, y)))
+
+
 def render(map_id, out, show_floors=False, level=None, path=None, crop=None):
     d = load(map_id)
-    xs = [t[1] for t in d["tiles"]] + [t[3] for t in d["tiles"]]
-    ys = [t[2] for t in d["tiles"]] + [t[4] for t in d["tiles"]]
-    xmax, ymax = max(xs), max(ys)
-    W = int((ymax - min(ys)) * PX) + 1
-    H = int((xmax - min(xs)) * PX) + 1
+    fl = floors(d)
+    xs = [p[0] for p in fl]
+    ys = [p[1] for p in fl]
+    xmax, ymax = max(xs) + 40, max(ys) + 40
+    W = int((ymax - min(ys) + 40) * PX) + 1
+    H = int((xmax - min(xs) + 40) * PX) + 1
 
     def scr(x, y):  # north up: screen right = -y, screen down = -x
         return (ymax - y) * PX, (xmax - x) * PX
 
     img = Image.new("RGBA", (W, H), (12, 12, 16, 255))
-    tiles = sorted(d["tiles"], key=lambda t: d["groups"][int(t[5]) - 1]["fz"])
-    for fdid, x0, y0, x1, y1, gi in tiles:
-        g = d["groups"][int(gi) - 1]
+    tiles = sorted(d["tiles"], key=lambda t: (t[7], 0 if t[5] == 0 else 1))
+    for fdid, cx, cy, tw_, th_, gi, rho, lvl in tiles:
         t = Image.open(io.BytesIO(w.casc(int(fdid)))).convert("RGBA")
-        # the texture's own axes: right = -world x, down = +world y (see build.py); turn it north up
-        # (u, v) -> screen (h-1-v, u): a quarter turn clockwise. Same as the addon's texcoords.
-        t = t.transpose(Image.Transpose.ROTATE_270)
-        sx, sy = scr(x1, y1)
-        tw, th = int(round((y1 - y0) * PX)), int(round((x1 - x0) * PX))
-        if t.size != (tw, th):
-            t = t.resize((tw, th))
-        if level is not None and g["lvl"] != level:
-            a = t.getchannel("A").point(lambda v: v * 0.18)
-            t.putalpha(a)
-        img.alpha_composite(t, (int(round(sx)), int(round(sy))))
+        # the image as it lies (w x h yards), turned counter-clockwise by rho, centred on (cx, cy)
+        t = t.resize((max(1, int(round(tw_ * PX))), max(1, int(round(th_ * PX)))))
+        t = t.rotate(math.degrees(rho), expand=True, resample=Image.Resampling.BILINEAR)
+        if level is not None and lvl != level:
+            t.putalpha(t.getchannel("A").point(lambda v: v * 0.18))
+        sx, sy = scr(cx, cy)
+        pos = (int(round(sx - t.size[0] / 2)), int(round(sy - t.size[1] / 2)))
+        if pos[0] >= W or pos[1] >= H or pos[0] + t.size[0] <= 0 or pos[1] + t.size[1] <= 0:
+            continue
+        # crop to the canvas
+        l, tp = max(0, -pos[0]), max(0, -pos[1])
+        r, b = min(t.size[0], W - pos[0]), min(t.size[1], H - pos[1])
+        img.alpha_composite(t.crop((l, tp, r, b)), (max(0, pos[0]), max(0, pos[1])))
     dr = ImageDraw.Draw(img)
     if show_floors:
-        for x, y, z in floors(d):
+        for x, y, z in fl:
             if level is None or abs(z - next((g["fz"] for g in d["groups"] if g["lvl"] == level), z)) < 25:
                 u, v = scr(x, y)
                 dr.point((u, v), fill=(0, 255, 255, 255))

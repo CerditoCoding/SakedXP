@@ -48,6 +48,9 @@ local function englishArea(data, text)
         for _, g in ipairs(data.groups) do
             if g.name ~= "" then rev[g.name] = g.name end
         end
+        for _, a in ipairs(data.areas or {}) do
+            if a ~= "" then rev[a] = a end
+        end
         local names = data.names and data.names[loc]
         if names then
             for en, localName in pairs(names) do rev[localName] = en end

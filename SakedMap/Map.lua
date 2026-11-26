@@ -36,15 +36,46 @@ end
 
 local count = 0 -- tiles in use for the current dungeon (the textures are reused between dungeons)
 
+-- texcoords (UL, LL, UR, LR) for an image turned 0, 90, 180, 270 degrees counter-clockwise on screen
+local QUARTER = {
+    [0] = { 0, 0, 0, 1, 1, 0, 1, 1 },
+    [1] = { 1, 0, 0, 0, 1, 1, 0, 1 },
+    [2] = { 1, 1, 1, 0, 0, 1, 0, 0 },
+    [3] = { 0, 1, 1, 1, 0, 0, 1, 0 },
+}
+local HALF_PI = math.pi / 2
+
+-- how a tile lies on screen: quarter turns through texcoords (exact, any aspect ratio), other angles
+-- through the texture's own rotation. Returns screen width, height (yards) and the rotation to apply.
+local function tileShape(d)
+    local w, h, rho = d[4], d[5], d[7] or 0
+    local k = rho / HALF_PI
+    local q = floor(k + 0.5)
+    if math.abs(k - q) < 0.01 then
+        q = q % 4
+        if q == 1 or q == 3 then w, h = h, w end
+        return w, h, nil, QUARTER[q]
+    end
+    return w, h, rho, QUARTER[0]
+end
+Map.tileShape = tileShape
+
+local function styleTile(t, d)
+    local _, _, rot, tc = tileShape(d)
+    if t.SetRotation then t:SetRotation(0) end
+    t:SetTexCoord(tc[1], tc[2], tc[3], tc[4], tc[5], tc[6], tc[7], tc[8])
+    if rot and t.SetRotation then t:SetRotation(rot) end
+end
+
 local function layoutTiles()
     for i = 1, count do
         local t = tiles[i]
-        local d = t.d -- { fdid, x0, y0, x1, y1, group }
-        -- top left on screen is the north-west corner: max x, max y
-        local left, top = -d[5] * view.s, d[4] * view.s
+        local d = t.d -- { fdid, centre x, centre y, w, h, room (0 = terrain), screen rotation, level }
+        local w, h = tileShape(d)
+        local cx, cy = toCanvas(d[2], d[3])
         t:ClearAllPoints()
-        t:SetPoint("TOPLEFT", canvas, "CENTER", left, top)
-        t:SetSize(max(1, (d[5] - d[3]) * view.s), max(1, (d[4] - d[2]) * view.s))
+        t:SetPoint("CENTER", canvas, "CENTER", cx, cy)
+        t:SetSize(max(1, w * view.s), max(1, h * view.s))
         local g = glows[i]
         g:ClearAllPoints()
         g:SetAllPoints(t)
@@ -52,7 +83,7 @@ local function layoutTiles()
 end
 
 local function tileLevel(t)
-    return data.groups[t.d[6]].lvl
+    return t.d[8] or (data.groups[t.d[6]] and data.groups[t.d[6]].lvl) or 1
 end
 
 local function applyLevels(curGroup)
@@ -71,7 +102,7 @@ local function applyLevels(curGroup)
             t:Hide()
         end
         local g = glows[i]
-        if curGroup and t.d[6] == curGroup then g:Show() else g:Hide() end
+        if curGroup and t.d[6] ~= 0 and t.d[6] == curGroup then g:Show() else g:Hide() end
     end
     for i, b in ipairs(levelButtons) do
         if i == lvl then b:LockHighlight() else b:UnlockHighlight() end
@@ -84,8 +115,9 @@ local function fit()
     for i = 1, count do
         local t = tiles[i]
         local d = t.d
-        if not shownLevel or tileLevel(t) == shownLevel then
-            x0, y0, x1, y1 = min(x0, d[2]), min(y0, d[3]), max(x1, d[4]), max(y1, d[5])
+        if (not shownLevel or tileLevel(t) == shownLevel) and d[6] ~= 0 then
+            local r = max(d[4], d[5]) / 2
+            x0, y0, x1, y1 = min(x0, d[2] - r), min(y0, d[3] - r), max(x1, d[2] + r), max(y1, d[3] + r)
         end
     end
     if x0 > x1 then return end
@@ -321,7 +353,11 @@ function Map:SetDungeon(d, g)
     -- lower levels first so upper floors draw on top
     local order = {}
     for i, td in ipairs(d.tiles) do order[i] = td end
-    table.sort(order, function(a, b) return d.groups[a[6]].lvl < d.groups[b[6]].lvl end)
+    -- terrain first, then rooms by level
+    table.sort(order, function(a, b)
+        if (a[6] == 0) ~= (b[6] == 0) then return a[6] == 0 end
+        return (a[8] or 0) < (b[8] or 0)
+    end)
     for i, td in ipairs(order) do
         local t = tiles[i]
         if not t then
@@ -332,14 +368,13 @@ function Map:SetDungeon(d, g)
             glows[i] = g2
         end
         t.d = td
-        local sub = max(-8, min(6, d.groups[td[6]].lvl - 8))
+        local sub = td[6] == 0 and -8 or max(-7, min(6, (td[8] or 1) - 8))
         t:SetDrawLayer("ARTWORK", sub)
         t:SetTexture(td[1])
-        local tc = d.tc
-        t:SetTexCoord(tc[1], tc[2], tc[3], tc[4], tc[5], tc[6], tc[7], tc[8])
+        styleTile(t, td)
         local g2 = glows[i]
         g2:SetTexture(td[1])
-        g2:SetTexCoord(tc[1], tc[2], tc[3], tc[4], tc[5], tc[6], tc[7], tc[8])
+        styleTile(g2, td)
         g2:SetVertexColor(0.25, 1, 0.3, 0.55)
         g2:Hide()
     end
@@ -380,7 +415,11 @@ function Map:UpdatePlayer(est, motion)
     end
     local lvl = grid:levelForZ(est.z)
     local g = est.group
-    if g and data.groups[g] then lvl = data.groups[g].lvl end
+    if g and data.groups[g] then
+        lvl = data.groups[g].lvl
+    elseif data.terrainLevel and data.terrainLevel > 0 then
+        lvl = data.terrainLevel -- out in the open
+    end
     if autoLevel or SakedMapDB.follow then shownLevel = lvl end
     local hg = locked and g or nil -- highlight the room only when the estimate is trusted
     if hg ~= Map.curGroup or Map.lastLevel ~= shownLevel then

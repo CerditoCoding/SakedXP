@@ -5,6 +5,7 @@ Only facts (FileDataIDs, coordinates, names) end up in the addon; the game's
 textures are loaded by the client itself at run time.
 """
 import csv
+import math
 import io
 import os
 import struct
@@ -179,3 +180,85 @@ class WMOGroup:
 if __name__ == "__main__":
     root = WMORoot(int(sys.argv[1]))
     print("wmoID", root.wmo_id, "groups", root.n_groups, "bbox", root.bbox)
+
+
+# ---------------------------------------------------------------- terrain maps (ADT)
+
+TILE = 1600.0 / 3.0           # 533.33 yards per ADT tile
+CHUNK = TILE / 16.0           # 33.33 yards per MCNK chunk
+UNIT = CHUNK / 8.0            # 4.17 yards between height vertices
+HALF_MAP = 32 * TILE          # 17066.67
+
+
+def wdt_tiles(wdt_fdid):
+    """[(tx, ty, ids)] for every ADT tile of a map; ids = root, obj0, obj1, tex0, lod, map, mapN, minimap."""
+    data = casc(wdt_fdid)
+    c = {}
+    for tag, p in chunks(data):
+        c.setdefault(tag, p)
+    out = []
+    main, maid = c.get("MAIN", b""), c.get("MAID", b"")
+    for i in range(4096):
+        if i * 8 + 4 <= len(main) and struct.unpack_from("<I", main, i * 8)[0] & 1:
+            ids = struct.unpack_from("<8I", maid, i * 32) if maid else (0,) * 8
+            out.append((i % 64, i // 64, ids))
+    return out
+
+
+class ADTChunk:
+    __slots__ = ("ix", "iy", "flags", "area", "pos", "heights", "holes", "hires")
+
+
+def adt_chunks(root_fdid):
+    """The 256 terrain chunks of a root ADT: position (world x, y of the north-west corner, base z),
+    145 heights, holes, area ID, flags."""
+    data = casc(root_fdid)
+    out = []
+    for tag, p in chunks(data):
+        if tag != "MCNK":
+            continue
+        k = ADTChunk()
+        k.flags, k.ix, k.iy = struct.unpack_from("<3I", p, 0)
+        k.hires = bool(k.flags & 0x10000)
+        k.holes = struct.unpack_from("<Q", p, 0x14)[0] if k.hires else struct.unpack_from("<H", p, 0x3C)[0]
+        k.area = struct.unpack_from("<I", p, 0x34)[0]
+        k.pos = struct.unpack_from("<3f", p, 0x68)
+        k.heights = None
+        for t2, p2 in chunks(p, 0x80):
+            if t2 == "MCVT":
+                k.heights = struct.unpack_from("<145f", p2, 0)
+        out.append(k)
+    return out
+
+
+def chunk_hole(k, row, col):
+    """Is quad (row, col) of the 8x8 grid a hole (cave mouths, building cellars)?"""
+    if k.hires:
+        return bool((k.holes >> (row * 8 + col)) & 1)
+    return bool((k.holes >> ((row // 2) * 4 + (col // 2))) & 1)
+
+
+def adt_wmos(obj0_fdid):
+    """WMO placements of an ADT (obj0): dicts with fdid, uid, world pos, yaw (radians), scale."""
+    data = casc(obj0_fdid)
+    out = []
+    for tag, p in chunks(data):
+        if tag != "MODF":
+            continue
+        for i in range(len(p) // 64):
+            nid, uid = struct.unpack_from("<II", p, i * 64)
+            pos = struct.unpack_from("<3f", p, i * 64 + 8)
+            rot = struct.unpack_from("<3f", p, i * 64 + 20)
+            flags, _ds, name_set, scale = struct.unpack_from("<4H", p, i * 64 + 56)
+            if not flags & 0x8:
+                continue  # placed by name, not FileDataID: not used by these maps
+            out.append({
+                "fdid": nid, "uid": uid,
+                # placement space -> world: x = 32 tiles - pos.z, y = 32 tiles - pos.x, z = pos.y
+                "x": HALF_MAP - pos[2], "y": HALF_MAP - pos[0], "z": pos[1],
+                # yaw: rot.y + 180 degrees (same 180 degree turn as WDT-placed WMOs; checked against the
+                # placements' own bounding boxes in tools/verify_tiles.py)
+                "yaw": math.radians(rot[1] + 180.0), "tilt": (rot[0], rot[2]),
+                "scale": scale / 1024.0, "nameSet": name_set,
+            })
+    return out

@@ -4,6 +4,6 @@ set -e
 cd "$(dirname "$0")/.."
 lua5.1 tests/unit.lua
 lua5.1 tests/smoke.lua
-for m in 389 43 48 34 90 70 349 109 230 229 429; do
+for m in 389 43 48 34 90 70 349 109 230 229 429 329 289 2974 3001 2994; do
   START=entrance lua5.1 tests/sim.lua $m 1 facing 240 | tail -1
 done

@@ -119,6 +119,31 @@ S.instance = nil
 S.fire("ZONE_CHANGED_NEW_AREA")
 check(ns.state.mapID == nil and not SakedMapFrame:IsShown(), "left the dungeon, map hidden")
 
+-- a terrain dungeon: Stratholme draws terrain tiles plus rooms turned to their placement's yaw
+S.instance = 329
+S.subzone = ""
+S.fire("ZONE_CHANGED_NEW_AREA")
+check(ns.state.mapID == 329, "entered Stratholme")
+local rotated, quarter, terrainTiles = 0, 0, 0
+for _, d in ipairs(ns.data[329].tiles) do
+    local _, _, rot = ns.Map.tileShape(d)
+    if d[6] == 0 then terrainTiles = terrainTiles + 1 end
+    if rot then rotated = rotated + 1 else quarter = quarter + 1 end
+end
+check(terrainTiles > 0 and quarter > 0, ("Stratholme tiles: %d terrain, %d quarter-turn, %d free-angle"):format(terrainTiles, quarter, rotated))
+for i = 1, 30 do
+    MinimapCompassTexture._rotation = 0.4
+    S.speed = 7
+    S.advance(0.1)
+end
+check(ns.state.est ~= nil, "Stratholme estimate runs")
+local g = ns.state.grid
+local e = ns.data[329].entrances[1]
+local name = g:areaName(e[1], e[2], e[3])
+check(type(name) == "string", "outdoor/indoor area name at the entrance: '" .. name .. "'")
+S.instance = nil
+S.fire("ZONE_CHANGED_NEW_AREA")
+
 -- every data file loads and its grid decodes
 local n = 0
 for id, d in pairs(ns.data) do

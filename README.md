@@ -49,13 +49,20 @@ Después, la primera vez que entres a una mazmorra, `/smap diag` te dice si la b
 
 ## Mazmorras incluidas
 
-Las 11 que son un solo WMO: Ragefire Chasm, Wailing Caverns, Blackfathom Deeps, Stormwind Stockade, Gnomeregan, Uldaman, Maraudon, Sunken Temple, **Blackrock Depths**, **Blackrock Spire** y **Dire Maul**.
+16 mazmorras:
 
-Todavía no están las que mezclan terreno y edificios: Deadmines, Shadowfang Keep, Razorfen Kraul y Downs, Scarlet Monastery, Zul'Farrak, Stratholme, Scholomance y las nuevas de Forever. Necesitan leer también el terreno (ADT); es el siguiente paso.
+- **Un solo WMO** (11): Ragefire Chasm, Wailing Caverns, Blackfathom Deeps, Stormwind Stockade, Gnomeregan, Uldaman, Maraudon, Sunken Temple, **Blackrock Depths**, **Blackrock Spire** y **Dire Maul**.
+- **Terreno + edificios** (5): **Stratholme**, **Scholomance**, **Blackmaw Hold**, **The Shaper's Terrace** y **Alcaz Prison**. Usan el relieve del terreno, los edificios ubicados en él y el nombre de subzona de cada parcela de terreno al aire libre.
+
+Faltan las de nivel bajo que también mezclan terreno: Hall of Thanes, Ruins of Lordaeron, Deadmines, Shadowfang Keep, Excavation Site: Wetlands, Razorfen Kraul, City of Dalaran, Scarlet Monastery, Razorfen Downs, The Drowned City, Krol'dok Stronghold y Zul'Farrak. Las raids tampoco están. Se agregan sumando su ID a `tools/build.py`.
+
+Blackmaw Hold, The Shaper's Terrace y Alcaz Prison no tienen un punto de entrada conocido. La primera vez el addon te busca en toda la mazmorra, ayudado por los nombres de subzona. En Alcaz eso alcanza: en simulación se ubica solo en 8 a 21 segundos. En las dos al aire libre puede tardar o no ubicarte, así que la primera vez conviene hacer **Mayús+clic donde aparecés apenas entrás**; el addon aprende esa entrada para las próximas.
+
+En Alcaz Prison el terreno de la superficie se descarta: es una tapa unas 20 yardas por encima de toda la cárcel subterránea.
 
 ## Precisión esperada
 
-En simulación, caminando rutas reales sobre el suelo de cada mazmorra (`tests/sim.lua`) y partiendo de la entrada, con la orientación de la brújula, el error mediano es de **1 a 5 yardas** en las 11 mazmorras, y la estimación se asegura en 5 a 45 segundos. Sin orientación (brújula apagada u oculta), el filtro no logra ubicarte y el addon te lo avisa en la barra de abajo.
+En simulación, caminando rutas reales sobre el suelo de cada mazmorra (`tests/sim.lua`) y con la orientación de la brújula, partiendo de la entrada, el error mediano es de **1 a 5 yardas** en las mazmorras con entrada conocida (Stratholme y Scholomance: alrededor de 2 yardas). La estimación se asegura en 5 a 45 segundos. Sin orientación (brújula apagada u oculta), el filtro no logra ubicarte y el addon te lo avisa en la barra de abajo.
 
 Lo que la simulación no cubre y puede empeorar la estimación en el juego: empujones y knockbacks, cargas o teletransportes dentro de la mazmorra, y quedarte trabado contra mobs. Para eso están Mayús+clic y `/smap reset`.
 
@@ -71,9 +78,12 @@ Lo que la simulación no cubre y puede empeorar la estimación en el juego: empu
 - `tools/build.py`: genera `SakedMap/Data/M<mapID>.lua` (suelo, salas, texturas, niveles, entradas) desde los datos del build `1.60.1.71139`. Descarga y cachea en `tools/.cache`.
 - `tools/verify_tiles.py`: comprueba la ubicación de las texturas del minimapa contra la geometría (98–99% de coincidencia).
 - `tools/preview.py`: dibuja el mapa generado en PNG (`--floors`, `--level N`, `--path ruta.csv`).
+- `tools/floormap.py`: el mismo mapa con el suelo caminable teñido y las entradas marcadas.
 - `tests/run.sh`: pruebas unitarias, prueba de humo con una imitación de la API de WoW (`tests/wowstub.lua`) y simulaciones en las 11 mazmorras. Necesita `lua5.1`.
 
 Datos verificados durante la construcción:
 - Mundo de la instancia = WMO rotado 180° (x → −x, y → −y). Los disparadores de área del cliente caen exactamente sobre el suelo solo con esa transformación (BRS, BRD, Dire Maul).
+- WMO ubicados sobre terreno (MODF): mundo = (32 parcelas − pos.z, 32 parcelas − pos.x, pos.y), giro = rot.y + 180°. Las cajas transformadas coinciden con los límites que guarda el propio juego, y en Stratholme las dos entradas y los dos disparadores del cliente caen sobre el suelo generado.
+- En los mapas de terreno solo se guarda el suelo alcanzable a pie desde los edificios de la mazmorra y sus entradas, más las subzonas con nombre. El terreno de esos mapas sigue por kilómetros, y las puertas o muros invisibles del juego no están en la geometría.
 - Texturas del minimapa por sala: 2 píxeles por yarda, bloques de 128 yardas desde la esquina mínima de la sala, con el eje derecho de la imagen = +x del WMO y el eje hacia abajo = −y.
 - Entradas: 13 de 15 puntos de aparición conocidos caen sobre suelo generado (a ≤0,2 yardas de altura); los otros 2 se descartaron.
