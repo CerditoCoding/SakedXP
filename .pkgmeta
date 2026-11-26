@@ -1,7 +1,0 @@
-package-as: SakedXP
-
-ignore:
-  - README.md
-  - .github
-  - .gitignore
-  - .pkgmeta
