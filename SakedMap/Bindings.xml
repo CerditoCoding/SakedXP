@@ -1,0 +1,5 @@
+<Bindings>
+	<Binding name="SAKEDMAP_TOGGLE" header="SAKEDMAP" category="ADDONS">
+		SakedMap_Toggle();
+	</Binding>
+</Bindings>

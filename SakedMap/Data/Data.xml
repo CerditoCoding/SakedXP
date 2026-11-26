@@ -1,0 +1,13 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+  <Script file="M34.lua"/>
+  <Script file="M43.lua"/>
+  <Script file="M48.lua"/>
+  <Script file="M70.lua"/>
+  <Script file="M90.lua"/>
+  <Script file="M109.lua"/>
+  <Script file="M229.lua"/>
+  <Script file="M230.lua"/>
+  <Script file="M349.lua"/>
+  <Script file="M389.lua"/>
+  <Script file="M429.lua"/>
+</Ui>

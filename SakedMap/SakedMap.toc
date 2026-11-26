@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: SakedMap
+## Notes: Dungeon maps for WoW Forever with an estimated "you are here" arrow (speed + minimap compass + walls + room names).
+## Author: Saked
+## Version: 0.1.0
+## Category: Map
+## SavedVariables: SakedMapDB
+
+Locale.lua
+Grid.lua
+Filter.lua
+Motion.lua
+Map.lua
+Test.lua
+Core.lua
+Data\Data.xml
